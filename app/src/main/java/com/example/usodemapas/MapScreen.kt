@@ -1,22 +1,37 @@
 package com.example.usodemapas
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.google.maps.android.compose.Polygon
 import com.google.maps.android.compose.Polyline
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.maps.android.compose.rememberMarkerState
 import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapType
 import com.google.maps.android.compose.Marker
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Text
 
 
 @Composable
@@ -26,28 +41,30 @@ fun MapScreen() {
         position = com.google.android.gms.maps.model.CameraPosition.fromLatLngZoom(ArequipaLocation, 12f)
     }
 
+    var currentMapType by remember { mutableStateOf(MapType.NORMAL) }
+
     LaunchedEffect(Unit) {
         cameraPositionState.animate(
-            update = CameraUpdateFactory.newLatLngZoom(LatLng(-16.2520984, -71.6836503), 12f), // Ubicación Yura [cite: 31]
+            update = CameraUpdateFactory.newLatLngZoom(LatLng(-16.2520984, -71.6836503), 12f), // Ubicación Yura
             durationMs = 3000
         )
     }
-
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Añadir GoogleMap al layout
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
-            cameraPositionState = cameraPositionState
-        ) {
-            // 1. Marcador básico en Arequipa de color azul personalizado
+            cameraPositionState = cameraPositionState,
+            properties = MapProperties(
+                mapType = currentMapType
+            )
+        ){
             Marker(
                 state = rememberMarkerState(position = ArequipaLocation),
-                icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE), // Icono azul [cite: 24]
+                icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE),
                 title = "Arequipa, Perú",
-            snippet = "Punto de inicio guiado"
-            )
-
+                snippet = "Punto de inicio guiado"
+                )
             // 2. Múltiples marcadores (Iteración de lista de ubicaciones)
             val locations = listOf(
                 LatLng(-16.433415, -71.5442652),  // JLByR
@@ -88,22 +105,67 @@ fun MapScreen() {
             Polygon(
                 points = plazaDeArmasPolygon,
                 strokeColor = Color.Red,
-            fillColor = Color.Blue.copy(alpha = 0.4f), // Modificado para visibilidad transparente
-            strokeWidth = 5f
+                fillColor = Color.Blue.copy(alpha = 0.4f), // Modificado para visibilidad transparente
+                strokeWidth = 5f
             )
             Polygon(
                 points = parqueLambramaniPolygon,
                 strokeColor = Color.Red,
-            fillColor = Color.Blue.copy(alpha = 0.4f),
-            strokeWidth = 5f
+                fillColor = Color.Blue.copy(alpha = 0.4f),
+                strokeWidth = 5f
             )
             Polygon(
                 points = mallAventuraPolygon,
                 strokeColor = Color.Red,
-            fillColor = Color.Blue.copy(alpha = 0.4f),
-            strokeWidth = 5f
+                fillColor = Color.Blue.copy(alpha = 0.4f),
+                strokeWidth = 5f
             )
+             // Traza una ruta lineal que une la Plaza de Armas con un Punto Aleatorio
+            val rutaEjemploPoints = listOf(
+                LatLng(-16.398866, -71.536961), // Plaza de Armas
+                LatLng(-16.408681, -71.505845), // Punto intermedio vial
+                LatLng(-16.422704, -71.530830)  // Punto Aleatorio
+            )
+            Polyline(
+                points = rutaEjemploPoints,
+                clickable = true,
+                color = Color.Green,
+                width = 10f
+            )
+        }
 
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.TopCenter)
+                .padding(12.dp)
+                .background(Color.White.copy(alpha = 0.8f))
+                .horizontalScroll(rememberScrollState()),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Button(
+                onClick = { currentMapType = MapType.NORMAL },
+                modifier = Modifier.padding(4.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = if(currentMapType == MapType.NORMAL) Color.DarkGray else Color.Blue)
+            ) { Text("Normal") }
+
+            Button(
+                onClick = { currentMapType = MapType.SATELLITE },
+                modifier = Modifier.padding(4.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = if(currentMapType == MapType.SATELLITE) Color.DarkGray else Color.Blue)
+            ) { Text("Satélite") }
+
+            Button(
+                onClick = { currentMapType = MapType.HYBRID },
+                modifier = Modifier.padding(4.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = if(currentMapType == MapType.HYBRID) Color.DarkGray else Color.Blue)
+            ) { Text("Híbrido") }
+
+            Button(
+                onClick = { currentMapType = MapType.TERRAIN },
+                modifier = Modifier.padding(4.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = if(currentMapType == MapType.TERRAIN) Color.DarkGray else Color.Blue)
+            ) { Text("Terreno") }
         }
     }
 }
