@@ -1,5 +1,6 @@
 package com.example.usodemapas
 
+import android.Manifest
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
@@ -32,14 +33,30 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
+import androidx.core.content.ContextCompat
+import android.content.pm.PackageManager
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import com.google.android.gms.location.LocationServices
+import com.google.maps.android.compose.MapUiSettings
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 
 @Composable
 fun MapScreen() {
+    val context = LocalContext.current
     val ArequipaLocation = LatLng(-16.4040102, -71.559611) // Arequipa, Perú
     val cameraPositionState = rememberCameraPositionState {
         position = com.google.android.gms.maps.model.CameraPosition.fromLatLngZoom(ArequipaLocation, 12f)
     }
+
+    val coroutineScope = rememberCoroutineScope()
+
+    // Cliente para obtener la ubicación GPS real del teléfono
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
     var currentMapType by remember { mutableStateOf(MapType.NORMAL) }
 
@@ -50,13 +67,38 @@ fun MapScreen() {
         )
     }
 
+    // ESTADOS DEL EJERCICIO 2: Verificación e inicialización de permisos de ubicación
+    var isLocationPermissionGranted by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context, Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    // Lanzador reactivo para solicitar el permiso de ubicación al usuario
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        isLocationPermissionGranted = isGranted
+        if (isGranted) {
+            Toast.makeText(context, "Permiso concedido. Cargando ubicación actual...", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Permiso de ubicación denegado.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         // Añadir GoogleMap al layout
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraPositionState,
             properties = MapProperties(
-                mapType = currentMapType
+                mapType = currentMapType,
+                isMyLocationEnabled = isLocationPermissionGranted // 1. Activa el GPS y el punto azul
+            ),
+            uiSettings = MapUiSettings(
+                myLocationButtonEnabled = false
             )
         ){
             Marker(
@@ -167,5 +209,40 @@ fun MapScreen() {
                 colors = ButtonDefaults.buttonColors(containerColor = if(currentMapType == MapType.TERRAIN) Color.DarkGray else Color.Blue)
             ) { Text("Terreno") }
         }
+
+        // 🎯 NUEVO BOTÓN UBICADO EN LA PARTE INFERIOR DEL TELÉFONO
+        if (isLocationPermissionGranted) {
+            Button(
+                onClick = {
+                    try {
+                        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                            if (location != null) {
+                                // 🛠️ SOLUCIÓN: Ejecutamos la función de suspensión dentro de la corrutina lanzada
+                                coroutineScope.launch {
+                                    cameraPositionState.animate(
+                                        update = CameraUpdateFactory.newLatLngZoom(
+                                            LatLng(location.latitude, location.longitude),
+                                            16f
+                                        ),
+                                        durationMs = 1500
+                                    )
+                                }
+                            } else {
+                                Toast.makeText(context, "Buscando señal GPS...", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    } catch (e: SecurityException) {
+                        e.printStackTrace()
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 24.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+            ) {
+                Text("Ver Mi Ubicación Actual 🎯")
+            }
+        }
+
     }
 }
